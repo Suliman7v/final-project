@@ -1,9 +1,10 @@
 package api
 
 import (
-	"final-project/pkg/db"
 	"net/http"
 	"time"
+
+	"final-project/pkg/db"
 )
 
 func doneHandler(w http.ResponseWriter, r *http.Request) {

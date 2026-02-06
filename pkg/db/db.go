@@ -2,8 +2,9 @@ package db
 
 import (
 	"database/sql"
-	_ "modernc.org/sqlite"
 	"os"
+
+	_ "modernc.org/sqlite"
 )
 
 const schema = `
@@ -38,4 +39,11 @@ func Init(dbFile string) error {
 	}
 
 	return db.Ping()
+}
+
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
 }

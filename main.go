@@ -1,10 +1,12 @@
 package main
 
 import (
-	"final-project/pkg/db"
-	"final-project/pkg/server"
+	"fmt"
 	"log"
 	"os"
+
+	"final-project/pkg/db"
+	"final-project/pkg/server"
 )
 
 func main() {
@@ -12,10 +14,19 @@ func main() {
 	if dbFile == "" {
 		dbFile = "scheduler.db"
 	}
+
 	err := db.Init(dbFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка инициализации БД: %v", err)
+		os.Exit(1)
 	}
+	defer db.Close()
 
-	log.Fatal(server.Start())
+	fmt.Println("Сервер запускается...")
+
+	err = server.Start()
+	if err != nil {
+		log.Printf("Ошибка запуска сервера: %v", err)
+		os.Exit(1)
+	}
 }

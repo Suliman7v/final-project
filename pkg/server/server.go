@@ -1,10 +1,11 @@
 package server
 
 import (
-	"final-project/pkg/api"
 	"fmt"
 	"net/http"
 	"os"
+
+	"final-project/pkg/api"
 )
 
 func Start() error {
@@ -16,7 +17,7 @@ func Start() error {
 	}
 
 	api.Init()
-	
+
 	http.Handle("/", http.FileServer(http.Dir("web")))
 
 	fmt.Printf("Сервер запущен на порту %s\n", port)

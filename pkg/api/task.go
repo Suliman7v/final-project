@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
-	"final-project/pkg/db"
 	"net/http"
 	"time"
+
+	"final-project/pkg/db"
 )
+
+const dateFormat = "20060102"
 
 // Вспомогательная функция для возврата JSON ответа
 func writeJSON(w http.ResponseWriter, data interface{}, statusCode int) {
@@ -67,10 +70,10 @@ func handleAddTask(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	if req.Date == "" {
-		req.Date = now.Format("20060102")
+		req.Date = now.Format(dateFormat)
 	}
 
-	taskDate, err := time.Parse("20060102", req.Date)
+	taskDate, err := time.Parse(dateFormat, req.Date)
 	if err != nil {
 		writeJSONError(w, "Неверный формат даты", http.StatusBadRequest)
 		return
@@ -91,7 +94,7 @@ func handleAddTask(w http.ResponseWriter, r *http.Request) {
 			req.Date = next
 		}
 	} else if taskDate.Before(now) && !isSameDay(taskDate, now) {
-		req.Date = now.Format("20060102")
+		req.Date = now.Format(dateFormat)
 	}
 
 	task := &db.Task{
@@ -174,10 +177,10 @@ func handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	if req.Date == "" {
-		req.Date = now.Format("20060102")
+		req.Date = now.Format(dateFormat)
 	}
 
-	taskDate, err := time.Parse("20060102", req.Date)
+	taskDate, err := time.Parse(dateFormat, req.Date)
 	if err != nil {
 		writeJSONError(w, "Неверный формат даты", http.StatusBadRequest)
 		return
@@ -199,7 +202,7 @@ func handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 			req.Date = next
 		}
 	} else if taskDate.Before(now) && !isSameDay(taskDate, now) {
-		req.Date = now.Format("20060102")
+		req.Date = now.Format(dateFormat)
 	}
 
 	task := &db.Task{
