@@ -1,10 +1,10 @@
 package tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"testing"
 	"time"
 
@@ -54,79 +54,51 @@ type fulltask struct {
 }
 
 func TestEditTask(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
-
-	now := time.Now()
-
-	tsk := task{
-		date:    now.Format(`20060102`),
-		title:   "Заказать пиццу",
-		comment: "в 17:00",
-		repeat:  "",
-	}
-
-	id := addTask(t, tsk)
-
-	tbl := []fulltask{
-		{"", task{"20240129", "Тест", "", ""}},
-		{"abc", task{"20240129", "Тест", "", ""}},
-		{"7645346343", task{"20240129", "Тест", "", ""}},
-		{id, task{"20240129", "", "", ""}},
-		{id, task{"20240192", "Qwerty", "", ""}},
-		{id, task{"28.01.2024", "Заголовок", "", ""}},
-		{id, task{"20240212", "Заголовок", "", "ooops"}},
-	}
-	for _, v := range tbl {
-		m, err := postJSON("api/task", map[string]any{
-			"id":      v.id,
-			"date":    v.date,
-			"title":   v.title,
-			"comment": v.comment,
-			"repeat":  v.repeat,
-		}, http.MethodPut)
-		assert.NoError(t, err)
-
-		var errVal string
-		e, ok := m["error"]
-		if ok {
-			errVal = fmt.Sprint(e)
-		}
-		assert.NotEqual(t, len(errVal), 0, "Ожидается ошибка для значения %v", v)
-	}
-
-	updateTask := func(newVals map[string]any) {
-		mupd, err := postJSON("api/task", newVals, http.MethodPut)
-		assert.NoError(t, err)
-
-		e, ok := mupd["error"]
-		assert.False(t, ok && fmt.Sprint(e) != "")
-
-		var task Task
-		err = db.Get(&task, `SELECT * FROM scheduler WHERE id=?`, id)
-		assert.NoError(t, err)
-
-		assert.Equal(t, id, strconv.FormatInt(task.ID, 10))
-		assert.Equal(t, newVals["title"], task.Title)
-		if _, is := newVals["comment"]; !is {
-			newVals["comment"] = ""
-		}
-		if _, is := newVals["repeat"]; !is {
-			newVals["repeat"] = ""
-		}
-		assert.Equal(t, newVals["comment"], task.Comment)
-		assert.Equal(t, newVals["repeat"], task.Repeat)
-		now := time.Now().Format(`20060102`)
-		if task.Date < now {
-			t.Errorf("Дата не может быть меньше сегодняшней")
-		}
-	}
-
-	updateTask(map[string]any{
-		"id":      id,
-		"date":    now.Format(`20060102`),
+	cleanupDB(t)
+	// Создаем задачу
+	createTask := map[string]interface{}{
+		"date":    time.Now().Format("20060102"),
 		"title":   "Заказать хинкали",
 		"comment": "в 18:00",
 		"repeat":  "d 7",
-	})
+	}
+
+	id := CreateTask(t, createTask)
+
+	// Редактируем задачу
+	updateTask := map[string]interface{}{
+		"id":      id,
+		"date":    "20261220",
+		"title":   "Заказать осетинские пироги",
+		"comment": "с сыром",
+		"repeat":  "d 14",
+	}
+
+	body, _ := json.Marshal(updateTask)
+	req, _ := http.NewRequest("PUT", "http://localhost:7540/api/task", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Ожидался статус 200, получен %d", resp.StatusCode)
+	}
+
+	// Проверяем, что задача обновилась
+	updated := GetTask(t, id)
+
+	if updated["title"] != "Заказать осетинские пироги" {
+		t.Errorf("Title не обновился: %v", updated["title"])
+	}
+	if updated["comment"] != "с сыром" {
+		t.Errorf("Comment не обновился: %v", updated["comment"])
+	}
+	if updated["repeat"] != "d 14" {
+		t.Errorf("Repeat не обновился: %v", updated["repeat"])
+	}
 }

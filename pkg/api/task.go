@@ -106,7 +106,7 @@ func handleAddTask(w http.ResponseWriter, r *http.Request) {
 
 	id, err := db.AddTask(task)
 	if err != nil {
-		writeJSONError(w, "Ошибка при добавлении задачи в БД", http.StatusInternalServerError)
+		writeJSONError(w, "Ошибка при добавлении задачи в БД"+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

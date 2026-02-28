@@ -15,23 +15,21 @@ type Task struct {
 }
 
 func AddTask(task *Task) (string, error) {
-	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
+	query := `INSERT INTO scheduler (date, title, comment, repeat) 
+	          VALUES ($1, $2, $3, $4) 
+	          RETURNING id`
 
-	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+	var id int
+	err := DB.QueryRow(query, task.Date, task.Title, task.Comment, task.Repeat).Scan(&id)
 	if err != nil {
 		return "", err
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		return "", err
-	}
-
-	return strconv.FormatInt(id, 10), nil
+	return strconv.FormatInt(int64(id), 10), nil
 }
 
 func Tasks(limit int, search string) ([]*Task, error) {
-	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?`
+	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT $1`
 
 	rows, err := DB.Query(query, limit)
 	if err != nil {
@@ -69,7 +67,7 @@ func GetTask(idStr string) (*Task, error) {
 		return nil, err
 	}
 
-	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
+	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = $1`
 	row := DB.QueryRow(query, id)
 
 	task := &Task{}
@@ -92,7 +90,7 @@ func UpdateTask(task *Task) error {
 		return err
 	}
 
-	query := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
+	query := `UPDATE scheduler SET date = $1, title = $2, comment = $3, repeat = $4 WHERE id = $5`
 	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, id)
 	if err != nil {
 		return err
@@ -116,7 +114,7 @@ func DeleteTask(idStr string) error {
 		return err
 	}
 
-	query := `DELETE FROM scheduler WHERE id = ?`
+	query := `DELETE FROM scheduler WHERE id = $1`
 	res, err := DB.Exec(query, id)
 	if err != nil {
 		return err
@@ -140,7 +138,7 @@ func UpdateDate(idStr string, date string) error {
 		return err
 	}
 
-	query := `UPDATE scheduler SET date = ? WHERE id = ?`
+	query := `UPDATE scheduler SET date = $1 WHERE id = $2`
 	res, err := DB.Exec(query, date, id)
 	if err != nil {
 		return err

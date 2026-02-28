@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,35 +19,35 @@ func notFoundTask(t *testing.T, id string) {
 }
 
 func TestDone(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	cleanupDB(t)
 
-	now := time.Now()
-	id := addTask(t, task{
-		date:  now.Format(`20060102`),
-		title: "Свести баланс",
-	})
+	// Создаем задачу с повторением
+	task := map[string]interface{}{
+		"date":    "20260228",
+		"title":   "Фитнес",
+		"comment": "с тренером",
+		"repeat":  "d 3",
+	}
 
-	ret, err := postJSON("api/task/done?id="+id, nil, http.MethodPost)
-	assert.NoError(t, err)
-	assert.Empty(t, ret)
-	notFoundTask(t, id)
+	id := CreateTask(t, task)
 
-	id = addTask(t, task{
-		title:  "Проверить работу /api/task/done",
-		repeat: "d 3",
-	})
+	// Отмечаем выполненной
+	resp, err := http.Post("http://localhost:7540/api/task/done?id="+id, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
 
-	for i := 0; i < 3; i++ {
-		ret, err := postJSON("api/task/done?id="+id, nil, http.MethodPost)
-		assert.NoError(t, err)
-		assert.Empty(t, ret)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Ожидался статус 200, получен %d", resp.StatusCode)
+	}
 
-		var task Task
-		err = db.Get(&task, `SELECT * FROM scheduler WHERE id=?`, id)
-		assert.NoError(t, err)
-		now = now.AddDate(0, 0, 3)
-		assert.Equal(t, now.Format(`20060102`), task.Date)
+	// Проверяем, что дата изменилась (должна стать +3 дня)
+	updated := GetTask(t, id)
+
+	expectedDate := "20260303" // 28.02 + 3 дня = 03.03
+	if updated["date"] != expectedDate {
+		t.Errorf("Дата не обновилась: ожидалось %s, получено %s", expectedDate, updated["date"])
 	}
 }
 

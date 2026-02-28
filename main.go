@@ -10,12 +10,12 @@ import (
 )
 
 func main() {
-	dbFile := os.Getenv("TODO_DBFILE")
-	if dbFile == "" {
-		dbFile = "scheduler.db"
+	connStr := os.Getenv("TODO_DATABASE_URL")
+	if connStr == "" {
+		connStr = "postgres://postgres:password@localhost:5432/todo?sslmode=disable"
 	}
 
-	err := db.Init(dbFile)
+	err := db.Init(connStr)
 	if err != nil {
 		log.Printf("Ошибка инициализации БД: %v", err)
 		os.Exit(1)
