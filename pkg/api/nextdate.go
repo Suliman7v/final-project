@@ -83,25 +83,47 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		}
 
 		next := parsedDate
-		for {
+
+		// Если исходная дата уже после now, начинаем с добавления интервала
+		if afterNow(next, now) {
 			next = next.AddDate(0, 0, interval)
+		}
+
+		// Добавляем интервалы, пока не получим дату после now
+		for {
 			if afterNow(next, now) {
 				break
 			}
+			next = next.AddDate(0, 0, interval)
 		}
+
 		return next.Format("20060102"), nil
 
 	case "y":
 		if len(parts) != 1 {
 			return "", errors.New("неверный формат для правила 'y'")
 		}
+
 		next := parsedDate
+
+		// Добавляем годы, пока не получим дату после now
 		for {
 			next = next.AddDate(1, 0, 0)
 			if afterNow(next, now) {
 				break
 			}
 		}
+
+		// Корректировка для 29 февраля
+		if parsedDate.Month() == 2 && parsedDate.Day() == 29 {
+			// Проверяем, есть ли 29 февраля в полученном году
+			_, err := time.Parse("20060102", next.Format("2006")+"0229")
+			if err != nil {
+				// Если нет, переходим на 1 марта
+				next = time.Date(next.Year(), 3, 1, 0, 0, 0, 0, time.UTC)
+			}
+		}
+
 		return next.Format("20060102"), nil
 
 	case "w":
@@ -120,6 +142,8 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		}
 
 		next := parsedDate
+
+		// Ищем ближайший подходящий день
 		for {
 			next = next.AddDate(0, 0, 1)
 			weekdayNum := weekdayToNumber(next.Weekday())
@@ -133,30 +157,6 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		if len(parts) < 2 || len(parts) > 3 {
 			return "", errors.New("неверный формат для правила 'm'")
 		}
-
-		dayStrs := strings.Split(parts[1], ",")
-		allowedDays := make(map[int]bool)
-		for _, dayStr := range dayStrs {
-			dayM, err := strconv.Atoi(strings.TrimSpace(dayStr))
-			if err != nil {
-				return "", errors.New("недопустимый день")
-			}
-			if (dayM < -2 || dayM > 31) || dayM == 0 {
-				return "", errors.New("недопустимый день")
-			}
-			allowedDays[dayM] = true
-		}
-
-		if len(parts) == 3 {
-			monthStrs := strings.Split(parts[2], ",")
-			for _, monthStr := range monthStrs {
-				month, err := strconv.Atoi(strings.TrimSpace(monthStr))
-				if err != nil || month < 1 || month > 12 {
-					return "", errors.New("недопустимый месяц")
-				}
-			}
-		}
-		// Пока не реализовано
 		return "", errors.New("правило 'm' пока не реализовано")
 
 	default:

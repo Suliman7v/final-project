@@ -41,7 +41,7 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		handleUpdateTask(w, r)
 	case http.MethodDelete:
-		handleDeleteTask(w, r) // Добавляем DELETE
+		handleDeleteTask(w, r)
 	default:
 		writeJSONError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 	}
@@ -79,21 +79,15 @@ func handleAddTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверка правила повторения, но без автоматической корректировки даты
 	if req.Repeat != "" {
 		_, err := NextDate(now, req.Date, req.Repeat)
 		if err != nil {
 			writeJSONError(w, "Некорректное правило повторения", http.StatusBadRequest)
 			return
 		}
-		if taskDate.Before(now) && !isSameDay(taskDate, now) {
-			next, err := NextDate(now, req.Date, req.Repeat)
-			if err != nil {
-				writeJSONError(w, "Некорректное правило повторения", http.StatusBadRequest)
-				return
-			}
-			req.Date = next
-		}
 	} else if taskDate.Before(now) && !isSameDay(taskDate, now) {
+		// Для задач без повторения, если дата в прошлом, устанавливаем сегодня
 		req.Date = now.Format(dateFormat)
 	}
 
@@ -186,22 +180,15 @@ func handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверка правила повторения, но без автоматической корректировки даты
 	if req.Repeat != "" {
 		_, err := NextDate(now, req.Date, req.Repeat)
 		if err != nil {
 			writeJSONError(w, "Некорректное правило повторения", http.StatusBadRequest)
 			return
 		}
-
-		if taskDate.Before(now) && !isSameDay(taskDate, now) {
-			next, err := NextDate(now, req.Date, req.Repeat)
-			if err != nil {
-				writeJSONError(w, "Некорректное правило повторения", http.StatusBadRequest)
-				return
-			}
-			req.Date = next
-		}
 	} else if taskDate.Before(now) && !isSameDay(taskDate, now) {
+		// Для задач без повторения, если дата в прошлом, устанавливаем сегодня
 		req.Date = now.Format(dateFormat)
 	}
 

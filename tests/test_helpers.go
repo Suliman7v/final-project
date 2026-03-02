@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"final-project/pkg/db"
 )
 
-// CreateTask создает задачу и возвращает её ID
 func CreateTask(t *testing.T, task map[string]interface{}) string {
 	body, _ := json.Marshal(task)
 	resp, err := http.Post("http://localhost:7540/api/task", "application/json", strings.NewReader(string(body)))
@@ -34,7 +35,6 @@ func CreateTask(t *testing.T, task map[string]interface{}) string {
 	return id
 }
 
-// GetTask получает задачу по ID
 func GetTask(t *testing.T, id string) map[string]interface{} {
 	resp, err := http.Get(fmt.Sprintf("http://localhost:7540/api/task?id=%s", id))
 	if err != nil {
@@ -48,4 +48,15 @@ func GetTask(t *testing.T, id string) map[string]interface{} {
 		t.Fatal(err)
 	}
 	return task
+}
+
+func InitTestDB(t *testing.T) {
+	err := db.Init(TestDBConnStr)
+	if err != nil {
+		t.Fatalf("Не удалось подключиться к тестовой БД: %v", err)
+	}
+}
+
+func CloseTestDB(t *testing.T) {
+	db.Close()
 }

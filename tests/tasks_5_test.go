@@ -23,12 +23,8 @@ func addTask(t *testing.T, task task) string {
 	return id
 }
 
-func getTasks(t *testing.T, search string) []map[string]string {
-	url := "api/tasks"
-	if Search {
-		url += "?search=" + search
-	}
-	body, err := requestJSON(url, nil, http.MethodGet)
+func getTasks(t *testing.T) []map[string]string {
+	body, err := requestJSON("api/tasks", nil, http.MethodGet)
 	assert.NoError(t, err)
 
 	var m map[string][]map[string]string
@@ -61,48 +57,22 @@ func TestTasks(t *testing.T) {
 		},
 	}
 
-	// Создаем задачи и сохраняем их ID
 	var ids []string
 	for _, task := range tasks {
 		id := CreateTask(t, task)
 		ids = append(ids, id)
 	}
 
-	// Получаем список всех задач
-	resp, err := http.Get("http://localhost:7540/api/tasks")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
+	tasksList := getTasks(t)
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Ожидался статус 200, получен %d", resp.StatusCode)
+	if len(tasksList) < len(tasks) {
+		t.Errorf("Ожидалось минимум %d задач, получено %d", len(tasks), len(tasksList))
 	}
 
-	// Проверяем структуру ответа
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Проверяем, что есть поле tasks
-	tasksResp, ok := result["tasks"].([]interface{})
-	if !ok {
-		t.Fatal("Нет поля tasks или оно не массив")
-	}
-
-	// Проверяем, что количество задач не меньше созданных
-	if len(tasksResp) < len(tasks) {
-		t.Errorf("Ожидалось минимум %d задач, получено %d", len(tasks), len(tasksResp))
-	}
-
-	// Проверяем, что созданные задачи есть в списке
 	found := 0
 	for _, id := range ids {
-		for _, task := range tasksResp {
-			taskMap := task.(map[string]interface{})
-			if taskMap["id"] == id {
+		for _, task := range tasksList {
+			if task["id"] == id {
 				found++
 				break
 			}

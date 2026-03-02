@@ -12,13 +12,12 @@ import (
 )
 
 func TestTask(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	cleanupDB(t)
 
 	now := time.Now()
 
 	task := task{
-		date:    now.Format(`20060102`),
+		date:    now.Format("20060102"),
 		title:   "Созвон в 16:00",
 		comment: "Обсуждение планов",
 		repeat:  "d 5",
@@ -55,7 +54,7 @@ type fulltask struct {
 
 func TestEditTask(t *testing.T) {
 	cleanupDB(t)
-	// Создаем задачу
+
 	createTask := map[string]interface{}{
 		"date":    time.Now().Format("20060102"),
 		"title":   "Заказать хинкали",
@@ -65,7 +64,6 @@ func TestEditTask(t *testing.T) {
 
 	id := CreateTask(t, createTask)
 
-	// Редактируем задачу
 	updateTask := map[string]interface{}{
 		"id":      id,
 		"date":    "20261220",
@@ -89,7 +87,6 @@ func TestEditTask(t *testing.T) {
 		t.Errorf("Ожидался статус 200, получен %d", resp.StatusCode)
 	}
 
-	// Проверяем, что задача обновилась
 	updated := GetTask(t, id)
 
 	if updated["title"] != "Заказать осетинские пироги" {

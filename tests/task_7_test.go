@@ -21,7 +21,6 @@ func notFoundTask(t *testing.T, id string) {
 func TestDone(t *testing.T) {
 	cleanupDB(t)
 
-	// Создаем задачу с повторением
 	task := map[string]interface{}{
 		"date":    "20260228",
 		"title":   "Фитнес",
@@ -31,7 +30,6 @@ func TestDone(t *testing.T) {
 
 	id := CreateTask(t, task)
 
-	// Отмечаем выполненной
 	resp, err := http.Post("http://localhost:7540/api/task/done?id="+id, "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -42,23 +40,23 @@ func TestDone(t *testing.T) {
 		t.Errorf("Ожидался статус 200, получен %d", resp.StatusCode)
 	}
 
-	// Проверяем, что дата изменилась (должна стать +3 дня)
 	updated := GetTask(t, id)
 
-	expectedDate := "20260303" // 28.02 + 3 дня = 03.03
+	expectedDate := "20260303"
 	if updated["date"] != expectedDate {
 		t.Errorf("Дата не обновилась: ожидалось %s, получено %s", expectedDate, updated["date"])
 	}
 }
 
 func TestDelTask(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	cleanupDB(t)
 
-	id := addTask(t, task{
-		title:  "Временная задача",
-		repeat: "d 3",
-	})
+	task := map[string]interface{}{
+		"title":  "Временная задача",
+		"repeat": "d 3",
+	}
+	id := CreateTask(t, task)
+
 	ret, err := postJSON("api/task?id="+id, nil, http.MethodDelete)
 	assert.NoError(t, err)
 	assert.Empty(t, ret)
@@ -68,7 +66,8 @@ func TestDelTask(t *testing.T) {
 	ret, err = postJSON("api/task", nil, http.MethodDelete)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ret)
-	ret, err = postJSON("api/task?id=wjhgese", nil, http.MethodDelete)
+
+	ret, err = postJSON("api/task?id=999999", nil, http.MethodDelete)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ret)
 }
