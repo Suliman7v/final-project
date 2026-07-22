@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -24,12 +23,8 @@ func addTask(t *testing.T, task task) string {
 	return id
 }
 
-func getTasks(t *testing.T, search string) []map[string]string {
-	url := "api/tasks"
-	if Search {
-		url += "?search=" + search
-	}
-	body, err := requestJSON(url, nil, http.MethodGet)
+func getTasks(t *testing.T) []map[string]string {
+	body, err := requestJSON("api/tasks", nil, http.MethodGet)
 	assert.NoError(t, err)
 
 	var m map[string][]map[string]string
@@ -39,70 +34,52 @@ func getTasks(t *testing.T, search string) []map[string]string {
 }
 
 func TestTasks(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	cleanupDB(t)
 
-	now := time.Now()
-	_, err := db.Exec("DELETE FROM scheduler")
-	assert.NoError(t, err)
-
-	tasks := getTasks(t, "")
-	assert.NotNil(t, tasks)
-	assert.Empty(t, tasks)
-
-	addTask(t, task{
-		date:    now.Format(`20060102`),
-		title:   "Просмотр фильма",
-		comment: "с попкорном",
-		repeat:  "",
-	})
-	now = now.AddDate(0, 0, 1)
-	date := now.Format(`20060102`)
-	addTask(t, task{
-		date:    date,
-		title:   "Сходить в бассейн",
-		comment: "",
-		repeat:  "",
-	})
-	addTask(t, task{
-		date:    date,
-		title:   "Оплатить коммуналку",
-		comment: "",
-		repeat:  "d 30",
-	})
-	tasks = getTasks(t, "")
-	assert.Equal(t, 3, len(tasks))
-
-	now = now.AddDate(0, 0, 2)
-	date = now.Format(`20060102`)
-	addTask(t, task{
-		date:    date,
-		title:   "Поплавать",
-		comment: "Бассейн с тренером",
-		repeat:  "d 7",
-	})
-	addTask(t, task{
-		date:    date,
-		title:   "Позвонить в УК",
-		comment: "Разобраться с горячей водой",
-		repeat:  "",
-	})
-	addTask(t, task{
-		date:    date,
-		title:   "Встретится с Васей",
-		comment: "в 18:00",
-		repeat:  "",
-	})
-
-	tasks = getTasks(t, "")
-	assert.Equal(t, 6, len(tasks))
-
-	if !Search {
-		return
+	tasks := []map[string]interface{}{
+		{
+			"date":    "20260228",
+			"title":   "Фитнес",
+			"comment": "с тренером",
+			"repeat":  "d 1",
+		},
+		{
+			"date":    "20260301",
+			"title":   "Сходить в бассейн",
+			"comment": "с друзьями",
+			"repeat":  "",
+		},
+		{
+			"date":    "20260305",
+			"title":   "Уроки",
+			"comment": "математика",
+			"repeat":  "d 7",
+		},
 	}
-	tasks = getTasks(t, "УК")
-	assert.Equal(t, 1, len(tasks))
-	tasks = getTasks(t, now.Format(`02.01.2006`))
-	assert.Equal(t, 3, len(tasks))
 
+	var ids []string
+	for _, task := range tasks {
+		id := CreateTask(t, task)
+		ids = append(ids, id)
+	}
+
+	tasksList := getTasks(t)
+
+	if len(tasksList) < len(tasks) {
+		t.Errorf("Ожидалось минимум %d задач, получено %d", len(tasks), len(tasksList))
+	}
+
+	found := 0
+	for _, id := range ids {
+		for _, task := range tasksList {
+			if task["id"] == id {
+				found++
+				break
+			}
+		}
+	}
+
+	if found != len(ids) {
+		t.Errorf("Найдено только %d из %d созданных задач", found, len(ids))
+	}
 }

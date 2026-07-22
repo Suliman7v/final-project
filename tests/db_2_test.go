@@ -1,13 +1,12 @@
 package tests
 
 import (
-	"os"
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
-	_ "modernc.org/sqlite"
+
+	"final-project/pkg/db"
 )
 
 type Task struct {
@@ -18,48 +17,49 @@ type Task struct {
 	Repeat  string `db:"repeat"`
 }
 
-func count(db *sqlx.DB) (int, error) {
+func countTasks() (int, error) {
 	var count int
-	return count, db.Get(&count, `SELECT count(id) FROM scheduler`)
-}
-
-func openDB(t *testing.T) *sqlx.DB {
-	dbfile := DBFile
-	envFile := os.Getenv("TODO_DBFILE")
-	if len(envFile) > 0 {
-		dbfile = envFile
-	}
-	db, err := sqlx.Connect("sqlite", dbfile)
-	assert.NoError(t, err)
-	return db
+	err := db.DB.QueryRow("SELECT COUNT(id) FROM scheduler").Scan(&count)
+	return count, err
 }
 
 func TestDB(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	InitTestDB(t)
+	defer CloseTestDB(t)
 
-	before, err := count(db)
+	cleanupDB(t)
+
+	before, err := countTasks()
 	assert.NoError(t, err)
 
-	today := time.Now().Format(`20060102`)
+	today := time.Now().Format("20060102")
 
-	res, err := db.Exec(`INSERT INTO scheduler (date, title, comment, repeat) 
-	VALUES (?, 'Todo', 'Комментарий', '')`, today)
+	var id int
+	err = db.DB.QueryRow(`
+		INSERT INTO scheduler (date, title, comment, repeat) 
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id`,
+		today, "Todo", "Комментарий", "").Scan(&id)
 	assert.NoError(t, err)
 
-	id, err := res.LastInsertId()
-
-	var task Task
-	err = db.Get(&task, `SELECT * FROM scheduler WHERE id=?`, id)
+	var task struct {
+		ID      int
+		Date    string
+		Title   string
+		Comment string
+		Repeat  string
+	}
+	err = db.DB.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = $1", id).
+		Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	assert.NoError(t, err)
 	assert.Equal(t, id, task.ID)
-	assert.Equal(t, `Todo`, task.Title)
-	assert.Equal(t, `Комментарий`, task.Comment)
+	assert.Equal(t, "Todo", task.Title)
+	assert.Equal(t, "Комментарий", task.Comment)
 
-	_, err = db.Exec(`DELETE FROM scheduler WHERE id = ?`, id)
+	_, err = db.DB.Exec("DELETE FROM scheduler WHERE id = $1", id)
 	assert.NoError(t, err)
 
-	after, err := count(db)
+	after, err := countTasks()
 	assert.NoError(t, err)
 
 	assert.Equal(t, before, after)

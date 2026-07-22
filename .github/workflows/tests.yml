@@ -1,33 +1,95 @@
-name: Go
+name: Go Tests
 
-on: [push]
+on:
+  push:
+    branches: [ main, master, postgres-version ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: [1.24.x]
-  
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: todo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24.x'
-        
-    - name: Display Go version
-      run: go version
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
 
-    - name: Install dependencies
-      run: go mod tidy
+      - name: Display Go version
+        run: go version
 
-    - name: Run local server
-      run: |
-        CGO_ENABLED=0 GOOS=linux go run main.go &
-        sleep 100
-        go test -run ^TestApp$ ./tests
-        
-        
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..10}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... $i"
+            sleep 2
+          done
+
+      - name: Create test database
+        run: |
+          PGPASSWORD=password psql -h localhost -U postgres -c "CREATE DATABASE todo_test;"
+        continue-on-error: true
+
+      - name: Build application
+        run: go build -o todo-app main.go
+
+      - name: Start application
+        run: |
+          export TODO_DATABASE_URL="postgres://postgres:password@localhost:5432/todo_test?sslmode=disable"
+          export TODO_PORT=7540
+          ./todo-app &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+          
+          for i in {1..30}; do
+            if curl -s http://localhost:7540 > /dev/null; then
+              echo "Application is ready"
+              break
+            fi
+            echo "Waiting for application... $i"
+            sleep 1
+          done
+
+      - name: Run all tests
+        run: |
+          export TODO_DATABASE_URL="postgres://postgres:password@localhost:5432/todo_test?sslmode=disable"
+          cd tests
+          go test -v -count=1 ./...
+
+      - name: Stop application
+        if: always()
+        run: kill $APP_PID || true
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            tests/*.log
+            *.log
